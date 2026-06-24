@@ -31,9 +31,7 @@ struct ImageSearchView: View {
                         }
                     } label: {
                         DiscCard(
-                            name: disc.name,
-                            primaryColor: disc.primaryColor,
-                            secondaryColor: disc.secondaryColor,
+                            disc: disc,
                             isSelected: store.selectedReference?.libraryDisc == disc
                         )
                     }

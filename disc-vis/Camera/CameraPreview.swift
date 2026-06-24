@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import Combine
 
 struct CameraPreview: UIViewRepresentable {
     final class PreviewView: UIView {

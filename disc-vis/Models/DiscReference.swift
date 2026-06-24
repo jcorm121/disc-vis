@@ -3,16 +3,6 @@ import SwiftUI
 struct LibraryDisc: Identifiable, Hashable {
     let id: String
     let name: String
-    let primaryColor: Color
-    let secondaryColor: Color
-
-    static func == (lhs: LibraryDisc, rhs: LibraryDisc) -> Bool {
-        lhs.id == rhs.id
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
 }
 
 struct DiscReference: Identifiable, Hashable {

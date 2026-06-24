@@ -26,9 +26,7 @@ struct BagView: View {
                                 }
                             } label: {
                                 DiscCard(
-                                    name: disc.name,
-                                    primaryColor: libraryDisc.primaryColor,
-                                    secondaryColor: libraryDisc.secondaryColor,
+                                    disc: libraryDisc,
                                     isSelected: store.selectedReference?.id == disc.id
                                 )
                             }
