@@ -44,12 +44,15 @@ final class DiscCaptureSession: NSObject, ObservableObject {
     }
 
     func capturePhoto() {
+        guard isRunning else { return }
         let settings = AVCapturePhotoSettings()
         photoOutput.capturePhoto(with: settings, delegate: self)
     }
 
     func clearCapture() {
         capturedImage = nil
+        discDetected = false
+        start()
     }
 
     private func configureAndStart() async {
@@ -144,6 +147,7 @@ extension DiscCaptureSession: AVCapturePhotoCaptureDelegate {
         }
         Task { @MainActor in
             capturedImage = image
+            stop()
         }
     }
 }

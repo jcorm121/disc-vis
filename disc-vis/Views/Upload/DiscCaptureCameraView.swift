@@ -39,13 +39,15 @@ struct DiscCaptureCameraView: View {
 
     @StateObject private var captureSession = DiscCaptureSession()
     @State private var isSaving = false
+    @State private var discName = ""
+    @State private var reviewPreview: UIImage?
 
     var body: some View {
         ZStack {
             if captureSession.permissionDenied {
                 permissionView
-            } else if let captured = captureSession.capturedImage {
-                reviewView(image: captured)
+            } else if let captured = captureSession.capturedImage, let preview = reviewPreview {
+                reviewView(image: captured, preview: preview)
             } else {
                 liveCaptureView
             }
@@ -53,6 +55,9 @@ struct DiscCaptureCameraView: View {
         .background(Color.black.ignoresSafeArea())
         .onAppear { captureSession.start() }
         .onDisappear { captureSession.stop() }
+        .onChange(of: captureSession.capturedImage) { _, image in
+            reviewPreview = image.map { DiscImageProcessor.cropToDiscSquare($0) }
+        }
     }
 
     private var liveCaptureView: some View {
@@ -121,11 +126,11 @@ struct DiscCaptureCameraView: View {
         .accessibilityLabel("Capture disc photo")
     }
 
-    private func reviewView(image: UIImage) -> some View {
+    private func reviewView(image: UIImage, preview: UIImage) -> some View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(uiImage: DiscImageProcessor.cropToDiscSquare(image))
+            Image(uiImage: preview)
                 .resizable()
                 .scaledToFit()
                 .clipShape(Circle())
@@ -135,13 +140,30 @@ struct DiscCaptureCameraView: View {
                 .padding(.horizontal, 32)
                 .shadow(color: .black.opacity(0.35), radius: 16)
 
-            Text("Use this photo?")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Name this disc:")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                TextField("Disc name", text: $discName)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(.white.opacity(0.35), lineWidth: 1)
+                    }
+                    .foregroundStyle(.white)
+                    .autocorrectionDisabled()
+            }
+            .padding(.horizontal, 24)
 
             HStack(spacing: 16) {
                 Button("Retake") {
                     withAnimation(.smooth(duration: 0.25)) {
+                        discName = ""
+                        reviewPreview = nil
                         captureSession.clearCapture()
                     }
                 }
@@ -167,7 +189,8 @@ struct DiscCaptureCameraView: View {
                     .background(DiscTheme.accentGradient, in: RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(.white)
                 }
-                .disabled(isSaving)
+                .disabled(isSaving || discName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(discName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
@@ -184,9 +207,12 @@ struct DiscCaptureCameraView: View {
     }
 
     private func usePhoto(_ image: UIImage) {
+        let name = discName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
         isSaving = true
         do {
-            _ = try store.addCapturedDisc(from: image)
+            _ = try store.addCapturedDisc(from: image, name: name)
             dismiss()
             onSavedToBag()
         } catch {

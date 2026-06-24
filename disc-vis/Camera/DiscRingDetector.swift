@@ -6,7 +6,7 @@ enum DiscDetectionConfig {
     /// Normalized radius R of the guide circle (relative to min image dimension).
     static let ringRadius: CGFloat = 0.38
     /// Ring offset δ — inner ring at R−δ, outer ring at R+δ (normalized).
-    static let delta: CGFloat = 0.05
+    static let delta: CGFloat = 0.02
     /// Minimum |avg_inner − avg_outer| on a 0–255 scale to detect an edge.
     static let contrastThreshold: CGFloat = 12
     /// Number of angular samples per ring.
