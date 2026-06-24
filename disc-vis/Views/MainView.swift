@@ -44,7 +44,7 @@ struct MainView: View {
                 BagView()
                     .tag(ImageSelectTab.bag)
 
-                ImageUploadView()
+                ImageUploadView(selectedTab: $selectedTab)
                     .tag(ImageSelectTab.upload)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -74,17 +74,19 @@ struct MainView: View {
         .padding(.top, 16)
         .frame(maxWidth: .infinity)
         .background {
-            LinearGradient(
-                colors: [.clear, DiscTheme.cream.opacity(0.95), .white],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .bottom)
+            DiscTheme.bottomBarGradient
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 }
 
-#Preview {
+#Preview("Light") {
     MainView()
         .environment(DiscStore())
+}
+
+#Preview("Dark") {
+    MainView()
+        .environment(DiscStore())
+        .preferredColorScheme(.dark)
 }

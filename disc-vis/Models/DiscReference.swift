@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 struct LibraryDisc: Identifiable, Hashable {
     let id: String
@@ -11,12 +11,17 @@ struct DiscReference: Identifiable, Hashable {
     var source: Source
 
     enum Source: Hashable {
-        case library(LibraryDisc)
-        case uploaded
+        case library(String)
+        case custom
     }
 
     var libraryDisc: LibraryDisc? {
-        if case .library(let disc) = source { return disc }
-        return nil
+        guard case .library(let libraryId) = source else { return nil }
+        return DiscStore.library.first { $0.id == libraryId }
+    }
+
+    var isCustom: Bool {
+        if case .custom = source { return true }
+        return false
     }
 }

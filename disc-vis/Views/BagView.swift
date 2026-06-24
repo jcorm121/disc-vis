@@ -19,27 +19,20 @@ struct BagView: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 16)], spacing: 12) {
                     ForEach(store.bag) { disc in
-                        if let libraryDisc = disc.libraryDisc {
-                            Button {
-                                withAnimation(.smooth(duration: 0.3)) {
-                                    store.selectFromBag(disc)
-                                }
-                            } label: {
-                                DiscCard(
-                                    disc: libraryDisc,
-                                    isSelected: store.selectedReference?.id == disc.id
-                                )
+                        Button {
+                            withAnimation(.smooth(duration: 0.3)) {
+                                store.selectFromBag(disc)
                             }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button("Remove from Bag", role: .destructive) {
-                                    withAnimation(.smooth(duration: 0.25)) {
-                                        store.removeFromBag(disc)
-                                    }
+                        } label: {
+                            bagCard(for: disc)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Remove from Bag", role: .destructive) {
+                                withAnimation(.smooth(duration: 0.25)) {
+                                    store.removeFromBag(disc)
                                 }
                             }
-                        } else {
-                            uploadedBagCard(disc)
                         }
                     }
                 }
@@ -48,25 +41,25 @@ struct BagView: View {
     }
 
     @ViewBuilder
-    private func uploadedBagCard(_ disc: DiscReference) -> some View {
-        Button {
-            withAnimation(.smooth(duration: 0.3)) {
-                store.selectFromBag(disc)
-            }
-        } label: {
+    private func bagCard(for disc: DiscReference) -> some View {
+        if let libraryDisc = disc.libraryDisc {
+            DiscCard(
+                disc: libraryDisc,
+                isSelected: store.selectedReference?.id == disc.id
+            )
+        } else {
             VStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(DiscTheme.accentGradient.opacity(0.25))
-                        .frame(width: 72, height: 72)
-
-                    if let data = store.uploadedImageData, let uiImage = UIImage(data: data) {
+                    if let uiImage = store.image(for: disc) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
                             .frame(width: 72, height: 72)
                             .clipShape(Circle())
                     } else {
+                        Circle()
+                            .fill(DiscTheme.accentGradient.opacity(0.25))
+                            .frame(width: 72, height: 72)
                         Image(systemName: "photo")
                             .font(.title2)
                             .foregroundStyle(DiscTheme.orange)
@@ -86,14 +79,6 @@ struct BagView: View {
                     .foregroundStyle(.primary.opacity(0.85))
             }
             .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button("Remove from Bag", role: .destructive) {
-                withAnimation(.smooth(duration: 0.25)) {
-                    store.removeFromBag(disc)
-                }
-            }
         }
     }
 }

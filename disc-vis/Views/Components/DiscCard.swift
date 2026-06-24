@@ -26,13 +26,13 @@ struct DiscCard: View {
                 .clipShape(Circle())
                 .overlay {
                     Circle()
-                        .strokeBorder(.white.opacity(0.5), lineWidth: 2)
+                        .strokeBorder(DiscTheme.cardRing, lineWidth: 2)
                 }
                 .overlay {
                     Circle()
                         .strokeBorder(isSelected ? DiscTheme.orange : .clear, lineWidth: 3)
                 }
-                .shadow(color: .black.opacity(isSelected ? 0.2 : 0.1), radius: isSelected ? 10 : 4, y: 3)
+                .shadow(color: DiscTheme.shadow.opacity(isSelected ? 1.6 : 1), radius: isSelected ? 10 : 4, y: 3)
                 .scaleEffect(isSelected ? 1.05 : 1)
 
             Text(name)

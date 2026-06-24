@@ -17,10 +17,10 @@ struct ImageSearchView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 14))
+            .background(DiscTheme.surface, in: RoundedRectangle(cornerRadius: 14))
             .overlay {
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(DiscTheme.yellow.opacity(0.5), lineWidth: 1)
+                    .strokeBorder(DiscTheme.surfaceStroke, lineWidth: 1)
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 16)], spacing: 12) {
@@ -38,14 +38,8 @@ struct ImageSearchView: View {
                     .buttonStyle(.plain)
                     .contextMenu {
                         Button("Add to Bag") {
-                            if let reference = store.selectedReference, reference.libraryDisc == disc {
-                                withAnimation(.smooth(duration: 0.25)) {
-                                    store.addToBag(reference)
-                                }
-                            } else {
-                                withAnimation(.smooth(duration: 0.25)) {
-                                    store.addToBag(DiscReference(id: UUID(), name: disc.name, source: .library(disc)))
-                                }
+                            withAnimation(.smooth(duration: 0.25)) {
+                                store.addLibraryToBag(disc)
                             }
                         }
                     }

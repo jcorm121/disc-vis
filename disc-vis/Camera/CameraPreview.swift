@@ -12,17 +12,19 @@ struct CameraPreview: UIViewRepresentable {
     }
 
     let session: AVCaptureSession
+    var videoGravity: AVLayerVideoGravity = .resizeAspectFill
 
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
         view.previewLayer.session = session
-        view.previewLayer.videoGravity = .resizeAspectFill
+        view.previewLayer.videoGravity = videoGravity
         view.backgroundColor = .black
         return view
     }
 
     func updateUIView(_ uiView: PreviewView, context: Context) {
         uiView.previewLayer.session = session
+        uiView.previewLayer.videoGravity = videoGravity
     }
 }
 
