@@ -23,6 +23,7 @@ Pipeline overview
 1. Dynamic axis weights  — scale each Lab axis before measuring distance
 2. Target signatures     — mean + k-means dominant colors from reference disc region
 3. Background signatures — k-means dominant colors from the *scene* (not reference)
+3b. Decontamination      — remove background sigs within ΔE of any target sig
 4. Per-pixel distances   — min Euclidean distance to any signature (weighted space)
 5. Discriminative score  — compares target vs background proximity per pixel
 6. Spatial smoothing     — Gaussian blur on the 8-bit map
@@ -43,8 +44,8 @@ import numpy as np
 # =============================================================================
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-REFERENCE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/popcorn-reference.png"
-SCENE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/popcorn-scene5.png"
+REFERENCE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/destroyer-reference.png"
+SCENE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/destroyer-scene4.png"
 
 # Fraction of the inscribed circle radius used as the target sampling region on
 # the *reference* image. This replaces a bounding-box ROI used in tracking papers.
@@ -55,11 +56,16 @@ PROBABILITY_THRESHOLD = 100
 
 # k-means signature counts. Target always includes the mean color *plus* up to
 # ``TARGET_DOMINANT_COLOR_COUNT`` k-means centroids (deduped).
-TARGET_DOMINANT_COLOR_COUNT = 3
-BACKGROUND_DOMINANT_COLOR_COUNT = 3
+TARGET_DOMINANT_COLOR_COUNT = 1
+BACKGROUND_DOMINANT_COLOR_COUNT = 5
 
 # Merge threshold in *weighted* Lab space during signature extraction.
 SIGNATURE_MERGE_DELTA_E = 5.0
+
+# Cluster-exclusion: drop a background signature if unweighted ΔE to any target
+# signature is below this (prevents scene colors similar to the disc from acting as
+# false negative evidence during the discriminative ratio).
+DECONTAMINATION_DELTA_E = 15.0
 
 # Background k-means subsamples pixels (not spatially) for speed.
 SCENE_PIXEL_SAMPLE_COUNT = 50_000
@@ -354,6 +360,33 @@ def extract_background_signatures(
     return remove_axis_weights(dominant_signatures, axis_weights)
 
 
+def decontaminate_background_signatures(
+    target_signatures: np.ndarray,
+    background_signatures: np.ndarray,
+    *,
+    delta_e_threshold: float = DECONTAMINATION_DELTA_E,
+) -> np.ndarray:
+    """Step 2c — cluster-exclusion mask (decontamination).
+
+    Compares target vs background signature lists using *standard unweighted* L*a*b*
+    Euclidean distance — deliberately not axis-weighted, so the exclusion threshold
+    is interpretable as a conventional ΔE.
+
+    Any background centroid within ``delta_e_threshold`` of *any* target centroid is
+    removed. The filtered list is what feeds the discriminative ratio in step 4.
+    """
+    if background_signatures.size == 0 or target_signatures.size == 0:
+        return background_signatures
+
+    difference = (
+        background_signatures[:, np.newaxis, :]
+        - target_signatures[np.newaxis, :, :]
+    )
+    min_delta_e_per_background = np.linalg.norm(difference, axis=2).min(axis=1)
+    keep_mask = min_delta_e_per_background >= delta_e_threshold
+    return background_signatures[keep_mask].astype(np.float32)
+
+
 def min_distance_to_signatures(
     pixel_lab: np.ndarray,
     signatures: np.ndarray,
@@ -446,6 +479,10 @@ def compute_continuous_lab_map(
         scene_bgr,
         dominant_color_count=background_dominant_color_count,
         axis_weights=axis_weights,
+    )
+    background_signatures = decontaminate_background_signatures(
+        target_signatures,
+        background_signatures,
     )
     signatures = ColorSignatures(
         target_signatures=target_signatures,
