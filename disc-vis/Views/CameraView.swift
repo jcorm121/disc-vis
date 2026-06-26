@@ -1,54 +1,34 @@
 import SwiftUI
 
-struct MatchOverlay: View {
-    @State private var pulse = false
-
-    private let regions: [CGRect] = [
-        CGRect(x: 0.18, y: 0.32, width: 0.22, height: 0.18),
-        CGRect(x: 0.58, y: 0.48, width: 0.16, height: 0.14),
-        CGRect(x: 0.34, y: 0.62, width: 0.2, height: 0.16),
-    ]
-
-    var body: some View {
-        GeometryReader { geometry in
-            ForEach(Array(regions.enumerated()), id: \.offset) { index, region in
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(DiscTheme.yellow.opacity(pulse ? 0.95 : 0.55), lineWidth: 2)
-                    .background {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(DiscTheme.orange.opacity(pulse ? 0.22 : 0.12))
-                    }
-                    .frame(
-                        width: region.width * geometry.size.width,
-                        height: region.height * geometry.size.height
-                    )
-                    .position(
-                        x: (region.minX + region.width / 2) * geometry.size.width,
-                        y: (region.minY + region.height / 2) * geometry.size.height
-                    )
-                    .animation(
-                        .easeInOut(duration: 1.4).repeatForever(autoreverses: true).delay(Double(index) * 0.2),
-                        value: pulse
-                    )
-            }
-        }
-        .allowsHitTesting(false)
-        .onAppear { pulse = true }
-    }
-}
-
 struct CameraView: View {
     @Environment(DiscStore.self) private var store
     let onExit: () -> Void
 
     @StateObject private var cameraSession = CameraSession()
+    @State private var heatmapEngine: LabHeatmapEngine? = LabHeatmapEngine()
+    @State private var palette: HeatmapPalette = .whiteHot
+    @State private var overlayOpacity = Double(HeatmapConfig.defaultOverlayOpacity)
+
+    private var hasReference: Bool {
+        store.selectedReference != nil
+    }
 
     var body: some View {
         ZStack {
             if cameraSession.permissionDenied {
                 cameraUnavailable
-            } else if cameraSession.isRunning {
-                CameraPreview(session: cameraSession.session)
+            } else if heatmapEngine == nil {
+                ContentUnavailableView {
+                    Label("Metal Unavailable", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text("This device cannot run the heatmap pipeline.")
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+                .ignoresSafeArea()
+            } else if cameraSession.isRunning, let heatmapEngine {
+                HeatmapMetalView(engine: heatmapEngine)
                     .ignoresSafeArea()
             } else {
                 ProgressView()
@@ -57,9 +37,6 @@ struct CameraView: View {
                     .background(Color.black)
                     .ignoresSafeArea()
             }
-
-            MatchOverlay()
-                .ignoresSafeArea()
 
             VStack {
                 HStack {
@@ -88,18 +65,65 @@ struct CameraView: View {
 
                 Spacer()
 
-                Text("Scanning for color & texture matches")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.black.opacity(0.35), in: Capsule())
-                    .padding(.bottom, 36)
+                VStack(spacing: 12) {
+                    if !hasReference {
+                        Text("Select a disc reference to enable heatmap")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(.black.opacity(0.35), in: Capsule())
+                    }
+
+                    if hasReference {
+                        heatmapControls
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 36)
             }
         }
-        .onAppear { cameraSession.start() }
-        .onDisappear { cameraSession.stop() }
+        .background(Color.black.ignoresSafeArea())
+        .onAppear {
+            loadReference()
+            wireFrameHandler()
+            cameraSession.start()
+        }
+        .onDisappear {
+            cameraSession.frameHandler = nil
+            cameraSession.stop()
+        }
+        .onChange(of: store.selectedReference?.id) { _, _ in
+            loadReference()
+        }
+        .onChange(of: palette) { _, newValue in
+            heatmapEngine?.palette = newValue
+        }
+        .onChange(of: overlayOpacity) { _, newValue in
+            heatmapEngine?.overlayOpacity = Float(newValue)
+        }
         .transition(.opacity.combined(with: .scale(scale: 1.02)))
+    }
+
+    private var heatmapControls: some View {
+        VStack(spacing: 10) {
+            Picker("Palette", selection: $palette) {
+                ForEach(HeatmapPalette.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            HStack {
+                Text("Overlay")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                Slider(value: $overlayOpacity, in: 0.5...1.0)
+                    .tint(DiscTheme.yellow)
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var cameraUnavailable: some View {
@@ -112,6 +136,28 @@ struct CameraView: View {
                 Text("Allow camera access in Settings to scan for discs.")
             }
             .foregroundStyle(.white)
+        }
+    }
+
+    private func loadReference() {
+        guard let engine = heatmapEngine else { return }
+        guard
+            let reference = store.selectedReference,
+            let image = store.image(for: reference),
+            let model = ReferenceSignatureModel.build(from: image)
+        else {
+            engine.setReference(nil)
+            return
+        }
+        engine.setReference(model)
+        engine.palette = palette
+        engine.overlayOpacity = Float(overlayOpacity)
+    }
+
+    private func wireFrameHandler() {
+        guard let engine = heatmapEngine else { return }
+        cameraSession.frameHandler = { pixelBuffer in
+            engine.processFrame(pixelBuffer)
         }
     }
 }

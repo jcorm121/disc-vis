@@ -27,6 +27,8 @@ struct MainView: View {
                         showCamera = false
                     }
                 }
+                .zIndex(1)
+                .transition(.opacity)
             } else {
                 imageSelectFlow
                     .transition(.opacity)
