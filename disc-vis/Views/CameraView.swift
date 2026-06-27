@@ -8,6 +8,8 @@ struct CameraView: View {
     @State private var heatmapEngine: LabHeatmapEngine? = LabHeatmapEngine()
     @State private var palette: HeatmapPalette = .whiteHot
     @State private var overlayOpacity = Double(HeatmapConfig.defaultOverlayOpacity)
+    @State private var useProbabilityThreshold = HeatmapConfig.defaultUseProbabilityThreshold
+    @State private var probabilityThreshold = Double(HeatmapConfig.defaultProbabilityThreshold)
 
     private var hasReference: Bool {
         store.selectedReference != nil
@@ -102,6 +104,12 @@ struct CameraView: View {
         .onChange(of: overlayOpacity) { _, newValue in
             heatmapEngine?.overlayOpacity = Float(newValue)
         }
+        .onChange(of: useProbabilityThreshold) { _, newValue in
+            heatmapEngine?.useProbabilityThreshold = newValue
+        }
+        .onChange(of: probabilityThreshold) { _, newValue in
+            heatmapEngine?.probabilityThreshold = Float(newValue)
+        }
         .transition(.opacity.combined(with: .scale(scale: 1.02)))
     }
 
@@ -120,6 +128,27 @@ struct CameraView: View {
                     .foregroundStyle(.white.opacity(0.85))
                 Slider(value: $overlayOpacity, in: 0.5...1.0)
                     .tint(DiscTheme.yellow)
+            }
+
+            Toggle(isOn: $useProbabilityThreshold) {
+                Text("Threshold overlay")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .tint(DiscTheme.yellow)
+
+            if useProbabilityThreshold {
+                HStack {
+                    Text("Threshold")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                    Slider(value: $probabilityThreshold, in: 0...1)
+                        .tint(DiscTheme.yellow)
+                    Text("\(Int((probabilityThreshold * 255).rounded()))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 28, alignment: .trailing)
+                }
             }
         }
         .padding(12)
@@ -152,6 +181,8 @@ struct CameraView: View {
         engine.setReference(model)
         engine.palette = palette
         engine.overlayOpacity = Float(overlayOpacity)
+        engine.useProbabilityThreshold = useProbabilityThreshold
+        engine.probabilityThreshold = Float(probabilityThreshold)
     }
 
     private func wireFrameHandler() {

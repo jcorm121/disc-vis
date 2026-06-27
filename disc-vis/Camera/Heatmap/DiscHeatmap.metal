@@ -10,6 +10,8 @@ struct HeatmapUniforms {
     float overlayScoreFloor;
     uint palette;
     float scoreGamma;
+    float probabilityThreshold;
+    uint useProbabilityThreshold;
 };
 
 struct Signature {
@@ -52,7 +54,8 @@ kernel void bgraToLab(texture2d<float, access::read> input [[texture(0)]],
                       uint2 gid [[thread_position_in_grid]]) {
     if (gid.x >= output.get_width() || gid.y >= output.get_height()) return;
     float4 bgra = input.read(gid);
-    float3 rgb = bgra.bgr;
+    // CVPixelBuffer BGRA textures from CoreVideo use .rgb component order for correct sRGB.
+    float3 rgb = bgra.rgb;
     float3 lab = rgbToLab(rgb);
     output.write(float4(lab, 1.0), gid);
 }
@@ -131,6 +134,15 @@ fragment float4 colormapFragment(ColormapVertexOut in [[stage_in]],
     float3 cameraRGB = cameraTexture.sample(s, in.texCoord).rgb;
     float score = scoreTexture.sample(s, in.texCoord).r;
     score = pow(score, uniforms.scoreGamma);
+
+    if (uniforms.useProbabilityThreshold != 0u) {
+        if (score >= uniforms.probabilityThreshold) {
+            float3 peakHeat = paletteColor(uniforms.palette, 1.0);
+            float3 blended = mix(cameraRGB, peakHeat, uniforms.overlayOpacity);
+            return float4(blended, 1.0);
+        }
+        return float4(cameraRGB, 1.0);
+    }
 
     float3 heat = paletteColor(uniforms.palette, score);
     float scoreWeight = mix(uniforms.overlayScoreFloor, 1.0, score);

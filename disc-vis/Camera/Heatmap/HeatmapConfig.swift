@@ -8,9 +8,12 @@ enum HeatmapConfig {
     static let sceneStatsMaxDimension: Int = 64
 
     static let objectRadiusFraction: Float = 0.85
-    static let targetDominantColorCount: Int = 3
-    static let backgroundDominantColorCount: Int = 3
+    static let targetDominantColorCount: Int = 1
+    static let backgroundDominantColorCount: Int = 5
     static let signatureMergeDeltaE: Float = 5.0
+
+    /// Unweighted Lab ΔE below which a background signature is treated as target-colored and removed.
+    static let backgroundExclusionDeltaE: Float = 15.0
 
     /// Subsample count for background k-means (reduced from Python 50k for mobile).
     static let scenePixelSampleCount: Int = 8_000
@@ -35,4 +38,9 @@ enum HeatmapConfig {
 
     /// Gamma applied to score before colormap (emphasizes peaks).
     static let scoreGamma: Float = 1.0
+
+    /// Hard threshold on 0–1 score (matches Python ``PROBABILITY_THRESHOLD`` / 255).
+    static let defaultProbabilityThreshold: Float = 100.0 / 255.0
+
+    static let defaultUseProbabilityThreshold: Bool = true
 }

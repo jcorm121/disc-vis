@@ -56,6 +56,21 @@ enum LabColorSpace {
         simd_length(lhs - rhs)
     }
 
+    /// Removes background signatures that are too close to any target in unweighted Lab space.
+    static func decontaminateBackgroundSignatures(
+        _ background: [SIMD3<Float>],
+        targetSignatures: [SIMD3<Float>],
+        exclusionDeltaE: Float = HeatmapConfig.backgroundExclusionDeltaE
+    ) -> [SIMD3<Float>] {
+        guard !targetSignatures.isEmpty else { return background }
+        return background.filter { backgroundSignature in
+            let nearestTargetDistance = targetSignatures
+                .map { deltaE(backgroundSignature, $0) }
+                .min() ?? .infinity
+            return nearestTargetDistance >= exclusionDeltaE
+        }
+    }
+
     private static func srgbToLinear(_ c: SIMD3<Float>) -> SIMD3<Float> {
         SIMD3(
             channelSrgbToLinear(c.x),

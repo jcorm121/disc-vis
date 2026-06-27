@@ -44,8 +44,8 @@ import numpy as np
 # =============================================================================
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-REFERENCE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/destroyer-reference.png"
-SCENE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/destroyer-scene4.png"
+REFERENCE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/sticker-reference.png"
+SCENE_IMAGE_PATH = REPO_ROOT / "disc-vis-py-algorithms/sticker-scene1.png"
 
 # Fraction of the inscribed circle radius used as the target sampling region on
 # the *reference* image. This replaces a bounding-box ROI used in tracking papers.

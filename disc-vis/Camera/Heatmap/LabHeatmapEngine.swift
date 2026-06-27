@@ -14,6 +14,8 @@ struct HeatmapUniforms {
     var overlayScoreFloor: Float
     var palette: UInt32
     var scoreGamma: Float
+    var probabilityThreshold: Float
+    var useProbabilityThreshold: UInt32
 }
 
 struct MetalSignature {
@@ -55,6 +57,8 @@ final class LabHeatmapEngine {
 
     var palette: HeatmapPalette = .whiteHot
     var overlayOpacity: Float = HeatmapConfig.defaultOverlayOpacity
+    var useProbabilityThreshold: Bool = HeatmapConfig.defaultUseProbabilityThreshold
+    var probabilityThreshold: Float = HeatmapConfig.defaultProbabilityThreshold
 
     init?() {
         guard
@@ -179,7 +183,11 @@ final class LabHeatmapEngine {
 
         frameCounter += 1
         if frameCounter % HeatmapConfig.backgroundRecomputeInterval == 1 || backgroundSignatures.isEmpty {
-            updateBackgroundSignatures(from: labTexture, weights: weights)
+            updateBackgroundSignatures(
+                from: labTexture,
+                weights: weights,
+                targetSignatures: reference.targetSignatures
+            )
         }
 
         guard
@@ -213,12 +221,20 @@ final class LabHeatmapEngine {
         lock.unlock()
     }
 
-    private func updateBackgroundSignatures(from labTexture: MTLTexture, weights: SIMD3<Float>) {
+    private func updateBackgroundSignatures(
+        from labTexture: MTLTexture,
+        weights: SIMD3<Float>,
+        targetSignatures: [SIMD3<Float>]
+    ) {
         guard let labPixels = readLabPixels(from: labTexture) else { return }
         let sampled = KMeansLab.subsample(labPixels, count: HeatmapConfig.scenePixelSampleCount)
         let weighted = sampled.map { $0 / weights }
         let centroids = KMeansLab.cluster(pixels: weighted, count: HeatmapConfig.backgroundDominantColorCount)
-        backgroundSignatures = centroids.map { $0 * weights }
+        let unweighted = centroids.map { $0 * weights }
+        backgroundSignatures = LabColorSpace.decontaminateBackgroundSignatures(
+            unweighted,
+            targetSignatures: targetSignatures
+        )
         backgroundSignatureBuffer = makeSignatureBuffer(
             signatures: backgroundSignatures,
             maxCount: HeatmapConfig.maxBackgroundSignatures
@@ -238,6 +254,8 @@ final class LabHeatmapEngine {
         let backgroundCount = backgroundSignatures.count
         let paletteValue = palette
         let opacity = overlayOpacity
+        let thresholdEnabled = useProbabilityThreshold
+        let threshold = probabilityThreshold
 
         return HeatmapUniforms(
             axisWeights: weights,
@@ -247,7 +265,9 @@ final class LabHeatmapEngine {
             overlayOpacity: opacity,
             overlayScoreFloor: HeatmapConfig.overlayScoreFloor,
             palette: UInt32(paletteValue.rawValue),
-            scoreGamma: HeatmapConfig.scoreGamma
+            scoreGamma: HeatmapConfig.scoreGamma,
+            probabilityThreshold: threshold,
+            useProbabilityThreshold: thresholdEnabled ? 1 : 0
         )
     }
 
