@@ -6,10 +6,9 @@ struct CameraView: View {
 
     @StateObject private var cameraSession = CameraSession()
     @State private var heatmapEngine: LabHeatmapEngine? = LabHeatmapEngine()
-    @State private var palette: HeatmapPalette = .whiteHot
     @State private var overlayOpacity = Double(HeatmapConfig.defaultOverlayOpacity)
-    @State private var useProbabilityThreshold = HeatmapConfig.defaultUseProbabilityThreshold
-    @State private var probabilityThreshold = Double(HeatmapConfig.defaultProbabilityThreshold)
+    @State private var isThermalMode = HeatmapConfig.defaultDisplayMode == .thermalCamera
+    @State private var sensitivity = Double(HeatmapConfig.defaultSensitivity)
 
     private var hasReference: Bool {
         store.selectedReference != nil
@@ -98,30 +97,20 @@ struct CameraView: View {
         .onChange(of: store.selectedReference?.id) { _, _ in
             loadReference()
         }
-        .onChange(of: palette) { _, newValue in
-            heatmapEngine?.palette = newValue
-        }
         .onChange(of: overlayOpacity) { _, newValue in
             heatmapEngine?.overlayOpacity = Float(newValue)
         }
-        .onChange(of: useProbabilityThreshold) { _, newValue in
-            heatmapEngine?.useProbabilityThreshold = newValue
+        .onChange(of: isThermalMode) { _, newValue in
+            heatmapEngine?.displayMode = newValue ? .thermalCamera : .highlighter
         }
-        .onChange(of: probabilityThreshold) { _, newValue in
-            heatmapEngine?.probabilityThreshold = Float(newValue)
+        .onChange(of: sensitivity) { _, newValue in
+            heatmapEngine?.sensitivity = Float(newValue)
         }
         .transition(.opacity.combined(with: .scale(scale: 1.02)))
     }
 
     private var heatmapControls: some View {
         VStack(spacing: 10) {
-            Picker("Palette", selection: $palette) {
-                ForEach(HeatmapPalette.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-
             HStack {
                 Text("Overlay")
                     .font(.caption.weight(.semibold))
@@ -130,24 +119,20 @@ struct CameraView: View {
                     .tint(DiscTheme.yellow)
             }
 
-            Toggle(isOn: $useProbabilityThreshold) {
-                Text("Threshold overlay")
+            Toggle(isOn: $isThermalMode) {
+                Text(isThermalMode ? "Thermal Camera" : "Highlighter")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.85))
             }
             .tint(DiscTheme.yellow)
 
-            if useProbabilityThreshold {
+            if !isThermalMode {
                 HStack {
-                    Text("Threshold")
+                    Text("Sensitivity")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.85))
-                    Slider(value: $probabilityThreshold, in: 0...1)
+                    Slider(value: $sensitivity, in: 0...1)
                         .tint(DiscTheme.yellow)
-                    Text("\(Int((probabilityThreshold * 255).rounded()))")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.85))
-                        .frame(width: 28, alignment: .trailing)
                 }
             }
         }
@@ -179,10 +164,9 @@ struct CameraView: View {
             return
         }
         engine.setReference(model)
-        engine.palette = palette
         engine.overlayOpacity = Float(overlayOpacity)
-        engine.useProbabilityThreshold = useProbabilityThreshold
-        engine.probabilityThreshold = Float(probabilityThreshold)
+        engine.displayMode = isThermalMode ? .thermalCamera : .highlighter
+        engine.sensitivity = Float(sensitivity)
     }
 
     private func wireFrameHandler() {

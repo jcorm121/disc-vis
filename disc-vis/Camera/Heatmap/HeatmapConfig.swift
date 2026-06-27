@@ -33,14 +33,25 @@ enum HeatmapConfig {
     /// Maximum heatmap blend at peak match scores (0 = camera only, 1 = heat only).
     static let defaultOverlayOpacity: Float = 0.95
 
-    /// Minimum score weight for blend; keeps the overlay visible in low-confidence areas.
-    static let overlayScoreFloor: Float = 0.45
+    /// Minimum score weight for blend (unused; both display modes use uniform overlay opacity).
+    static let overlayScoreFloor: Float = 0.0
 
     /// Gamma applied to score before colormap (emphasizes peaks).
     static let scoreGamma: Float = 1.0
 
-    /// Hard threshold on 0–1 score (matches Python ``PROBABILITY_THRESHOLD`` / 255).
+    /// Hard threshold at default sensitivity (matches Python ``PROBABILITY_THRESHOLD`` / 255).
     static let defaultProbabilityThreshold: Float = 100.0 / 255.0
 
-    static let defaultUseProbabilityThreshold: Bool = true
+    /// Threshold range mapped by the sensitivity slider (low sensitivity → high threshold).
+    static let minProbabilityThreshold: Float = 0.05
+    static let maxProbabilityThreshold: Float = 0.95
+
+    /// Sensitivity 0…1; default places threshold at ``defaultProbabilityThreshold``.
+    static let defaultSensitivity: Float = {
+        let range = minProbabilityThreshold - maxProbabilityThreshold
+        guard range != 0 else { return 0.5 }
+        return (defaultProbabilityThreshold - maxProbabilityThreshold) / range
+    }()
+
+    static let defaultDisplayMode: HeatmapDisplayMode = .thermalCamera
 }

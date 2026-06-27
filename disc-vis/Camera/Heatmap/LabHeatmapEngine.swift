@@ -15,7 +15,7 @@ struct HeatmapUniforms {
     var palette: UInt32
     var scoreGamma: Float
     var probabilityThreshold: Float
-    var useProbabilityThreshold: UInt32
+    var displayMode: UInt32
 }
 
 struct MetalSignature {
@@ -57,8 +57,8 @@ final class LabHeatmapEngine {
 
     var palette: HeatmapPalette = .whiteHot
     var overlayOpacity: Float = HeatmapConfig.defaultOverlayOpacity
-    var useProbabilityThreshold: Bool = HeatmapConfig.defaultUseProbabilityThreshold
-    var probabilityThreshold: Float = HeatmapConfig.defaultProbabilityThreshold
+    var displayMode: HeatmapDisplayMode = HeatmapConfig.defaultDisplayMode
+    var sensitivity: Float = HeatmapConfig.defaultSensitivity
 
     init?() {
         guard
@@ -254,8 +254,8 @@ final class LabHeatmapEngine {
         let backgroundCount = backgroundSignatures.count
         let paletteValue = palette
         let opacity = overlayOpacity
-        let thresholdEnabled = useProbabilityThreshold
-        let threshold = probabilityThreshold
+        let mode = displayMode
+        let threshold = Self.probabilityThreshold(for: sensitivity)
 
         return HeatmapUniforms(
             axisWeights: weights,
@@ -263,12 +263,18 @@ final class LabHeatmapEngine {
             targetCount: UInt32(targetCount),
             backgroundCount: UInt32(backgroundCount),
             overlayOpacity: opacity,
-            overlayScoreFloor: HeatmapConfig.overlayScoreFloor,
+            overlayScoreFloor: 0,
             palette: UInt32(paletteValue.rawValue),
             scoreGamma: HeatmapConfig.scoreGamma,
             probabilityThreshold: threshold,
-            useProbabilityThreshold: thresholdEnabled ? 1 : 0
+            displayMode: mode.rawValue
         )
+    }
+
+    static func probabilityThreshold(for sensitivity: Float) -> Float {
+        let clamped = max(0, min(1, sensitivity))
+        return HeatmapConfig.maxProbabilityThreshold
+            + clamped * (HeatmapConfig.minProbabilityThreshold - HeatmapConfig.maxProbabilityThreshold)
     }
 
     private func computeAxisWeights(

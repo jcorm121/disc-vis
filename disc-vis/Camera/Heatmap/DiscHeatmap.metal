@@ -11,7 +11,7 @@ struct HeatmapUniforms {
     uint palette;
     float scoreGamma;
     float probabilityThreshold;
-    uint useProbabilityThreshold;
+    uint displayMode;
 };
 
 struct Signature {
@@ -94,10 +94,27 @@ kernel void discriminativeScore(texture2d<float, access::read> labTexture [[text
 inline float3 paletteColor(uint palette, float t) {
     t = clamp(t, 0.0, 1.0);
     switch (palette) {
-        case 0: return float3(t);              // white-hot
-        case 1: return float3(1.0 - t);        // black-hot
-        default: return float3(t, 0.0, 0.0);   // red-hot
+        case 0: return float3(t);              // white-hot (highlighter)
+        case 1: return float3(1.0 - t);        // unused
+        default: return float3(t, 0.0, 0.0);   // unused
     }
+}
+
+inline float3 ironbowColor(float t) {
+    t = clamp(t, 0.0, 1.0);
+    const float3 stops[6] = {
+        float3(0.0, 0.0, 0.0),
+        float3(0.18, 0.0, 0.33),
+        float3(0.75, 0.0, 0.0),
+        float3(1.0, 0.45, 0.0),
+        float3(1.0, 1.0, 0.2),
+        float3(1.0, 1.0, 1.0),
+    };
+    float scaled = t * 5.0;
+    int index = int(floor(scaled));
+    index = min(index, 4);
+    float frac = scaled - float(index);
+    return mix(stops[index], stops[index + 1], frac);
 }
 
 struct ColormapVertexOut {
@@ -135,18 +152,16 @@ fragment float4 colormapFragment(ColormapVertexOut in [[stage_in]],
     float score = scoreTexture.sample(s, in.texCoord).r;
     score = pow(score, uniforms.scoreGamma);
 
-    if (uniforms.useProbabilityThreshold != 0u) {
-        if (score >= uniforms.probabilityThreshold) {
-            float3 peakHeat = paletteColor(uniforms.palette, 1.0);
-            float3 blended = mix(cameraRGB, peakHeat, uniforms.overlayOpacity);
-            return float4(blended, 1.0);
-        }
-        return float4(cameraRGB, 1.0);
+    if (uniforms.displayMode == 0u) {
+        float3 heat = ironbowColor(score);
+        float3 blended = mix(cameraRGB, heat, uniforms.overlayOpacity);
+        return float4(blended, 1.0);
     }
 
-    float3 heat = paletteColor(uniforms.palette, score);
-    float scoreWeight = mix(uniforms.overlayScoreFloor, 1.0, score);
-    float alpha = uniforms.overlayOpacity * scoreWeight;
-    float3 blended = mix(cameraRGB, heat, alpha);
-    return float4(blended, 1.0);
+    if (score >= uniforms.probabilityThreshold) {
+        float3 highlight = float3(1.0, 0.0, 0.0);
+        float3 blended = mix(cameraRGB, highlight, uniforms.overlayOpacity);
+        return float4(blended, 1.0);
+    }
+    return float4(cameraRGB, 1.0);
 }
